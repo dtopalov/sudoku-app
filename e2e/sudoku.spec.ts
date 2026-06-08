@@ -189,7 +189,7 @@ test.describe('Board gallery', () => {
     await expect(page.locator('.gallery__row--active')).toHaveCount(1, { timeout: 5_000 });
     const inactiveRow = page.locator('.gallery__row:not(.gallery__row--active)').first();
     const sessionId = await inactiveRow.locator('.gallery__cell--id').getAttribute('title');
-    await inactiveRow.click();
+    await inactiveRow.locator('.gallery__select-btn').click();
     await page.waitForURL(new RegExp(sessionId!.trim()), { timeout: 10_000 });
   });
 });
@@ -262,62 +262,87 @@ test.describe('Keyboard accessibility: board gallery rows', () => {
     await ensureGalleryRows(page, 2);
   });
 
-  test('first gallery row has tabindex="0", others have tabindex="-1"', async ({ page }) => {
-    await expect(page.locator('.gallery__row').first()).toHaveAttribute('tabindex', '0');
-    await expect(page.locator('.gallery__row').nth(1)).toHaveAttribute('tabindex', '-1');
+  test('first header cell (row=0, col=0) has tabindex="0"', async ({ page }) => {
+    await expect(page.locator('[data-row="0"][data-col="0"]')).toHaveAttribute('tabindex', '0');
   });
 
-  test('ArrowDown moves focus to the next row', async ({ page }) => {
-    const rows = page.locator('.gallery__row');
-    // Click the active (first) row to enter the widget, then arrow down
-    await rows.first().click();
-    await expect(rows.first()).toHaveAttribute('tabindex', '0');
-    await page.keyboard.press('ArrowDown');
-    await expect(rows.nth(1)).toHaveAttribute('tabindex', '0');
-    await expect(rows.nth(1)).toBeFocused();
+  test('all other header cells have tabindex="-1"', async ({ page }) => {
+    for (let col = 1; col <= 3; col++) {
+      await expect(page.locator(`[data-row="0"][data-col="${col}"]`)).toHaveAttribute('tabindex', '-1');
+    }
   });
 
-  test('ArrowUp moves focus back to the previous row', async ({ page }) => {
-    const rows = page.locator('.gallery__row');
-    await rows.first().click();
-    await expect(rows.first()).toHaveAttribute('tabindex', '0');
+  test('clicking a header cell focuses it', async ({ page }) => {
+    const headerCell = page.locator('[data-row="0"][data-col="0"]');
+    await headerCell.click();
+    await expect(headerCell).toBeFocused();
+  });
+
+  test('ArrowRight moves focus to the next column', async ({ page }) => {
+    const c00 = page.locator('[data-row="0"][data-col="0"]');
+    const c01 = page.locator('[data-row="0"][data-col="1"]');
+    await c00.click();
+    await page.keyboard.press('ArrowRight');
+    await expect(c01).toHaveAttribute('tabindex', '0');
+    await expect(c01).toBeFocused();
+  });
+
+  test('ArrowLeft moves focus to the previous column', async ({ page }) => {
+    const c01 = page.locator('[data-row="0"][data-col="1"]');
+    const c00 = page.locator('[data-row="0"][data-col="0"]');
+    await c01.click();
+    await page.keyboard.press('ArrowLeft');
+    await expect(c00).toHaveAttribute('tabindex', '0');
+    await expect(c00).toBeFocused();
+  });
+
+  test('ArrowDown from header moves to first data row', async ({ page }) => {
+    const c00 = page.locator('[data-row="0"][data-col="0"]');
+    const c10 = page.locator('[data-row="1"][data-col="0"]');
+    await c00.click();
     await page.keyboard.press('ArrowDown');
-    await expect(rows.nth(1)).toHaveAttribute('tabindex', '0');
+    await expect(c10).toHaveAttribute('tabindex', '0');
+    await expect(c10).toBeFocused();
+  });
+
+  test('ArrowUp from data row returns to header', async ({ page }) => {
+    const c10 = page.locator('[data-row="1"][data-col="0"]');
+    const c00 = page.locator('[data-row="0"][data-col="0"]');
+    await c10.click();
     await page.keyboard.press('ArrowUp');
-    await expect(rows.first()).toHaveAttribute('tabindex', '0');
-    await expect(rows.first()).toBeFocused();
+    await expect(c00).toHaveAttribute('tabindex', '0');
+    await expect(c00).toBeFocused();
   });
 
-  test('ArrowUp does not move before the first row', async ({ page }) => {
-    const rows = page.locator('.gallery__row');
-    await rows.first().click();
-    await expect(rows.first()).toHaveAttribute('tabindex', '0');
-    await page.keyboard.press('ArrowUp');
-    await expect(rows.first()).toHaveAttribute('tabindex', '0');
-    await expect(rows.first()).toBeFocused();
-  });
-
-  test('Enter on a focused row navigates to that session', async ({ page }) => {
-    const rows = page.locator('.gallery__row');
-    // Get session ID from row 1 before navigating
-    const sessionId = await rows.nth(1).locator('.gallery__cell--id').getAttribute('title');
-    // Click active row to enter widget, arrow down to row 1, then activate with Enter
-    await rows.first().click();
-    await expect(rows.first()).toHaveAttribute('tabindex', '0');
+  test('ArrowDown does not go past the last data row', async ({ page }) => {
+    const rowCount = await page.locator('.gallery__row').count();
+    const lastDataRow = page.locator(`[data-row="${rowCount}"][data-col="0"]`);
+    await lastDataRow.click();
     await page.keyboard.press('ArrowDown');
-    await expect(rows.nth(1)).toHaveAttribute('tabindex', '0');
+    await expect(lastDataRow).toHaveAttribute('tabindex', '0');
+    await expect(lastDataRow).toBeFocused();
+  });
+
+  test('Enter on a data cell navigates to that session', async ({ page }) => {
+    const inactiveRow = page.locator('.gallery__row:not(.gallery__row--active)').first();
+    const sessionId = await inactiveRow.locator('.gallery__cell--id').getAttribute('title');
+    await inactiveRow.locator('[data-col="0"]').click();
     await page.keyboard.press('Enter');
     await page.waitForURL(new RegExp(sessionId!.trim()), { timeout: 10_000 });
   });
 
-  test('Space on a focused row navigates to that session', async ({ page }) => {
-    const rows = page.locator('.gallery__row');
-    const sessionId = await rows.nth(1).locator('.gallery__cell--id').getAttribute('title');
-    await rows.first().click();
-    await expect(rows.first()).toHaveAttribute('tabindex', '0');
-    await page.keyboard.press('ArrowDown');
-    await expect(rows.nth(1)).toHaveAttribute('tabindex', '0');
+  test('Space on a data cell navigates to that session', async ({ page }) => {
+    const inactiveRow = page.locator('.gallery__row:not(.gallery__row--active)').first();
+    const sessionId = await inactiveRow.locator('.gallery__cell--id').getAttribute('title');
+    await inactiveRow.locator('[data-col="0"]').click();
     await page.keyboard.press('Space');
     await page.waitForURL(new RegExp(sessionId!.trim()), { timeout: 10_000 });
+  });
+
+  test('clicking a cell makes it visually focused (has CSS focus)', async ({ page }) => {
+    const c10 = page.locator('[data-row="1"][data-col="0"]');
+    await c10.click();
+    await expect(c10).toHaveAttribute('tabindex', '0');
+    await expect(c10).toBeFocused();
   });
 });

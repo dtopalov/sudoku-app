@@ -1,12 +1,11 @@
 import {
-  afterNextRender,
+  afterRenderEffect,
   Component,
-  EnvironmentInjector,
+  ElementRef,
   inject,
   input,
   model,
   output,
-  runInInjectionContext,
 } from '@angular/core';
 import type { PositionedCell } from './../../../shared/sudoku.models';
 import { SudokuStore } from './sudoku.store';
@@ -27,7 +26,7 @@ const NAVIGATION_KEYS = [
 @Component({
   selector: 'app-sudoku-board',
   template: `
-    <table class="sudoku-table" role="grid">
+    <table class="sudoku-table" role="grid" (keydown)="onTableKeyDown($event)" (pointerdown)="onTablePointerDown($event)">
       <colgroup>
         @for (cell of board()?.[0]; track $index) {
           <col />
@@ -48,13 +47,13 @@ const NAVIGATION_KEYS = [
             @for (cell of row; track cell.col) {
               <td
                 class="sudoku-cell"
-                [class.sudoku-cell--selected]="isSelected(cell)"
                 [class.sudoku-cell--fixed]="cell.fixed"
                 [class.sudoku-cell--readonly]="isReadOnly()"
                 role="gridcell"
-                [attr.tabindex]="isSelected(cell) ? 0 : undefined"
-                (click)="onCellClick(cell)"
-                (keydown)="onKeyDown($event, cell.fixed)">
+                tabindex="-1"
+                [attr.data-row]="cell.row"
+                [attr.data-col]="cell.col"
+                [attr.data-fixed]="cell.fixed ? '' : null">
                 {{ cell.value ?? '' }}
               </td>
             }
@@ -75,22 +74,31 @@ export class SudokuBoardComponent {
   clearRequested = output<void>();
 
   private readonly store = inject(SudokuStore);
-  private readonly environmentInjector = inject(EnvironmentInjector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private rovingCell: HTMLElement | null = null;
 
-  isSelected(cell: PositionedCell): boolean {
-    return cell.row === this.selectedCellIndex()[0] && cell.col === this.selectedCellIndex()[1];
+  constructor() {
+    afterRenderEffect(() => {
+      const [row, col] = this.selectedCellIndex();
+      this.board(); // track board changes so selection is re-applied after rerenders
+      this.applySelection(row, col);
+    });
   }
 
-  onCellClick(cell: PositionedCell): void {
-    this.selectedCellIndex.set([cell.row, cell.col]);
-    runInInjectionContext(this.environmentInjector, () =>
-      afterNextRender(() =>
-        (document.querySelector('.sudoku-cell--selected') as HTMLElement | null)?.focus()
-      )
-    );
+  onTablePointerDown(e: PointerEvent): void {
+    const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-row][data-col]');
+    if (!cell) return;
+    this.focusCell(Number(cell.dataset['row']), Number(cell.dataset['col']));
   }
 
-  onKeyDown(e: KeyboardEvent, isCellFixed: boolean): void {
+  onTableKeyDown(e: KeyboardEvent): void {
+    const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-row][data-col]');
+    if (!cell) return;
+
+    const row = Number(cell.dataset['row']);
+    const col = Number(cell.dataset['col']);
+    const isFixed = 'fixed' in cell.dataset;
+
     const isNumber = /^[0-9]$/i.test(e.key);
     const isClearValueKey = CLEAR_KEYS.some((k) => k === e.key);
     const isNavKey = NAVIGATION_KEYS.some((k) => k === e.key);
@@ -98,13 +106,14 @@ export class SudokuBoardComponent {
     if (!isNumber && !isClearValueKey && !isNavKey) return;
 
     if (isNavKey) {
-      this.navigateBoard(e.key);
+      e.preventDefault();
+      this.navigateBoard(e.key, row, col);
       return;
     }
 
-    if (isCellFixed || this.isReadOnly()) return;
+    if (isFixed || this.isReadOnly()) return;
 
-    if (isNumber && +e.key !== 0 && this.isConflictingNumber(+e.key)) {
+    if (isNumber && +e.key !== 0 && this.isConflictingNumber(row, col, +e.key)) {
       this.store.setInvalidMoveError();
       return;
     }
@@ -112,9 +121,77 @@ export class SudokuBoardComponent {
     this.valueEntered.emit(isClearValueKey || +e.key === 0 ? null : +e.key);
   }
 
-  private isConflictingNumber(contender: number): boolean {
+  private focusCell(row: number, col: number): void {
+    this.applySelection(row, col);
+    this.rovingCell?.focus();
+    this.selectedCellIndex.set([row, col]);
+  }
+
+  private applySelection(row: number, col: number): void {
+    if (this.rovingCell) {
+      this.rovingCell.tabIndex = -1;
+      this.rovingCell.classList.remove('sudoku-cell--selected');
+    }
+    const cell = this.host.nativeElement.querySelector<HTMLElement>(
+      `.sudoku-cell[data-row="${row}"][data-col="${col}"]`
+    );
+    if (!cell) return;
+    cell.tabIndex = 0;
+    cell.classList.add('sudoku-cell--selected');
+    this.rovingCell = cell;
+  }
+
+  private navigateBoard(key: string, currentRow: number, currentCol: number): void {
+    let rowDelta = 0;
+    let colDelta = 0;
+
+    switch (key) {
+      case Keys.ArrowLeft: {
+        colDelta = -1;
+        break;
+      }
+      case Keys.ArrowUp: {
+        rowDelta = -1;
+        break;
+      }
+      case Keys.ArrowRight: {
+        colDelta = 1;
+        break;
+      }
+      case Keys.ArrowDown: {
+        rowDelta = 1;
+        break;
+      }
+      case Keys.PageUp: {
+        rowDelta = -1;
+        colDelta = 1;
+        break;
+      }
+      case Keys.PageDown: {
+        rowDelta = 1;
+        colDelta = 1;
+        break;
+      }
+      case Keys.End: {
+        rowDelta = 1;
+        colDelta = -1;
+        break;
+      }
+      case Keys.Home: {
+        rowDelta = -1;
+        colDelta = -1;
+        break;
+      }
+    }
+
+    this.focusCell(
+      Math.min(Math.max(currentRow + rowDelta, 1), 9),
+      Math.min(Math.max(currentCol + colDelta, 1), 9),
+    );
+  }
+
+  private isConflictingNumber(selectedRow: number, selectedCol: number, contender: number): boolean {
     const board = this.board();
-    const [selectedRow, selectedCol] = this.selectedCellIndex();
 
     if (board[selectedRow - 1].some((cell) => cell.value === contender)) return true;
 
@@ -132,31 +209,5 @@ export class SudokuBoardComponent {
     }
 
     return false;
-  }
-
-  private navigateBoard(key: string): void {
-    let direction = [0, 0];
-
-    switch (key) {
-      case Keys.ArrowLeft:  direction = [0, -1];  break;
-      case Keys.ArrowUp:    direction = [-1, 0];  break;
-      case Keys.ArrowRight: direction = [0, 1];   break;
-      case Keys.ArrowDown:  direction = [1, 0];   break;
-      case Keys.PageUp:     direction = [-1, 1];  break;
-      case Keys.PageDown:   direction = [1, 1];   break;
-      case Keys.End:        direction = [1, -1];  break;
-      case Keys.Home:       direction = [-1, -1]; break;
-    }
-
-    const [currentRow, currentCol] = this.selectedCellIndex();
-    const targetRow = Math.min(Math.max(currentRow + direction[0], 1), 9);
-    const targetCol = Math.min(Math.max(currentCol + direction[1], 1), 9);
-
-    this.selectedCellIndex.set([targetRow, targetCol]);
-    runInInjectionContext(this.environmentInjector, () =>
-      afterNextRender(() =>
-        (document.querySelector('.sudoku-cell--selected') as HTMLElement | null)?.focus()
-      )
-    );
   }
 }
