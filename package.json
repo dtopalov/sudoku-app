@@ -6,8 +6,13 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:server": "vitest run --config vitest.server.config.ts",
+    "test:all": "npm test && npm run test:server",
+    "test:e2e": "playwright test",
+    "server": "npx tsx server/src/sudoku-server.ts"
   },
+  "type": "module",
   "private": true,
   "packageManager": "npm@11.13.0",
   "dependencies": {
@@ -17,6 +22,9 @@
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
     "@angular/router": "^22.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "http": "^0.0.1-security",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
@@ -24,6 +32,9 @@
     "@angular/build": "^22.0.0",
     "@angular/cli": "^22.0.0",
     "@angular/compiler-cli": "^22.0.0",
+    "@playwright/test": "^1.60.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.2",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
