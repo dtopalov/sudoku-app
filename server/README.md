@@ -16,7 +16,8 @@ Its responsibility is to create puzzle sessions, manage per-user runs, validate 
 │     └─ ... Angular application
 ├─ server/
 │  └─ src/
-│     └─ sudoku-server.ts
+│     ├─ sudoku-server.ts   — Express app, routes, in-memory state
+│     └─ sudoku-utils.ts    — board helpers (validate, clone, upsert leaderboard)
 └─ shared/
    └─ sudoku.models.ts
 ```
@@ -61,6 +62,12 @@ Each player run stores:
 
 ## Endpoints
 
+### `GET /health`
+Returns `{ ok: true }`. Used to verify the server is up.
+
+### `GET /api/sessions`
+Returns a summary list of all active sessions (id, difficulty, createdAt, completedCount).
+
 ### `POST /api/sessions`
 Creates a new session and fetches a board from Sugoku.
 
@@ -68,9 +75,11 @@ Request body:
 
 ```json
 {
-  "difficulty": "random"
+  "difficulty": "easy"
 }
 ```
+
+Valid difficulty values: `easy`, `medium`, `hard`, `random` (default: `random`).
 
 ### `GET /api/sessions/:sessionId`
 Returns stored session metadata.
@@ -82,12 +91,15 @@ Request body:
 
 ```json
 {
-  "userId": "dimitar"
+  "userId": "dimiter"
 }
 ```
 
 ### `GET /api/sessions/:sessionId/leaderboard`
 Returns the current leaderboard for the session.
+
+### `POST /api/sessions/:sessionId/solve`
+Returns the full solution for the session's puzzle via Sugoku. Can be used for hint or reveal features.
 
 ### `POST /api/sessions/:sessionId/submissions`
 Submits one move for one player's board.
@@ -96,11 +108,13 @@ Request body:
 
 ```json
 {
-  "userId": "dimitar",
-  "index": 10,
+  "userId": "dimiter",
+  "index": [3, 5],
   "value": 7
 }
 ```
+
+`index` is a 1-based `[row, col]` tuple (both in range 1–9). `value` is 1–9.
 
 ## Submission lifecycle
 1. Find the session.
@@ -123,6 +137,7 @@ Request body:
 - `FIXED_CELL`
 - `INVALID_MOVE_CONFLICT`
 - `FAILED_TO_SUBMIT_MOVE`
+- `FAILED_TO_SOLVE`
 
 ## Local run
 Run all commands from the repository root.
@@ -136,7 +151,7 @@ npm install
 Start the server:
 
 ```bash
-npx ts-node server/src/sudoku-server.ts
+npm run server
 ```
 
 Default URL:

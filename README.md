@@ -20,7 +20,8 @@ The multiplayer mode is asynchronous rather than real-time collaborative. Multip
 │     └─ ... Angular application
 ├─ server/
 │  └─ src/
-│     └─ sudoku-server.ts
+│     ├─ sudoku-server.ts
+│     └─ sudoku-utils.ts
 └─ shared/
    └─ sudoku.models.ts
 ```
@@ -51,7 +52,7 @@ The multiplayer mode is asynchronous rather than real-time collaborative. Multip
 3. The frontend receives a `sessionId` and joins the player into that session.
 4. Other users can join using the same session id.
 5. Each player solves the same puzzle independently.
-6. Each move is submitted to the backend for validation.
+6. Each non-conflicting move is submitted to the backend for validation.
 7. Once solved, the player's completion time is recorded in the session leaderboard.
 8. The leaderboard can be re-fetched on reload or revisit.
 
@@ -68,7 +69,7 @@ npm install
 ### Start the REST API
 
 ```bash
-npx ts-node server/src/sudoku-server.ts
+npm run server
 ```
 
 Backend URL:
@@ -80,7 +81,7 @@ http://localhost:3000
 ### Start the Angular frontend
 
 ```bash
-ng serve
+npm start
 ```
 
 Frontend URL:
@@ -89,8 +90,23 @@ Frontend URL:
 http://localhost:4200
 ```
 
+### Run tests
+
+```bash
+# Angular unit tests
+npm test
+
+# Server unit tests
+npm run test:server
+
+# Both
+npm run test:all
+
+# End-to-end tests (requires both frontend and backend running)
+npm run test:e2e
+```
+
 ## Notes
 - Session and leaderboard data are stored in memory only.
 - Restarting the backend clears active sessions and leaderboard entries.
 - Sugoku validation uses `application/x-www-form-urlencoded` payloads.
-- A Socket.IO version can be added in a separate branch as an enhancement for real-time leaderboard updates.
