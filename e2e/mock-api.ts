@@ -28,7 +28,7 @@ const SOLUTION: number[][] = [
 
 interface Cell { value: number | null; fixed: boolean; row: number; col: number; }
 interface Session { sessionId: string; difficulty: string; initialBoard: Cell[][]; leaderboard: LeaderboardEntry[]; createdAt: number; }
-interface Run { sessionId: string; userId: string; board: Cell[][]; startedAt: number; completedAt: number | null; durationMs: number | null; status: 'active' | 'completed'; }
+interface Run { sessionId: string; userId: string; board: Cell[][]; startedAt: number; completedAt: number | null; durationMs: number | null; status: 'active' | 'completed'; eligible: boolean; }
 interface LeaderboardEntry { userId: string; durationMs: number; completedAt: number; }
 
 function rawToCells(raw: number[][]): Cell[][] {
@@ -48,7 +48,11 @@ function isSolved(board: Cell[][]): boolean {
 function ok<T>(data: T) { return { ok: true, data }; }
 function fail(error: string) { return { ok: false, error }; }
 
-export async function setupMockApi(page: Page): Promise<void> {
+export interface MockApiOptions {
+  leaderboard?: LeaderboardEntry[];
+}
+
+export async function setupMockApi(page: Page, options: MockApiOptions = {}): Promise<void> {
   const sessions = new Map<string, Session>();
   const runs = new Map<string, Run>();
 
@@ -57,25 +61,30 @@ export async function setupMockApi(page: Page): Promise<void> {
       sessionId: randomUUID(),
       difficulty,
       initialBoard: rawToCells(PUZZLE),
-      leaderboard: [],
+      leaderboard: options.leaderboard ? [...options.leaderboard] : [],
       createdAt: Date.now(),
     };
   }
 
   function getOrCreateRun(session: Session, userId: string): Run {
     const key = `${session.sessionId}:${userId}`;
-    if (!runs.has(key)) {
-      runs.set(key, {
-        sessionId: session.sessionId,
-        userId,
-        board: cloneBoard(session.initialBoard),
-        startedAt: Date.now(),
-        completedAt: null,
-        durationMs: null,
-        status: 'active',
-      });
-    }
-    return runs.get(key)!;
+    const existing = runs.get(key);
+
+    if (existing?.status === 'active') return existing;
+
+    const eligible = !existing;
+    const run: Run = {
+      sessionId: session.sessionId,
+      userId,
+      board: cloneBoard(session.initialBoard),
+      startedAt: Date.now(),
+      completedAt: null,
+      durationMs: null,
+      status: 'active',
+      eligible,
+    };
+    runs.set(key, run);
+    return run;
   }
 
   await page.route('http://localhost:3000/**', async (route: Route) => {
@@ -167,7 +176,9 @@ export async function setupMockApi(page: Page): Promise<void> {
         run.status = 'completed';
         run.completedAt = Date.now();
         run.durationMs = run.completedAt - run.startedAt;
-        session.leaderboard.push({ userId, durationMs: run.durationMs, completedAt: run.completedAt });
+        if (run.eligible) {
+          session.leaderboard.push({ userId, durationMs: run.durationMs, completedAt: run.completedAt });
+        }
       }
       return respond(ok({ run, leaderboard: session.leaderboard }));
     }

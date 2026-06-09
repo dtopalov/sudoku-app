@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, testWith, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -344,5 +344,73 @@ test.describe('Keyboard accessibility: board gallery rows', () => {
     await c10.click();
     await expect(c10).toHaveAttribute('tabindex', '0');
     await expect(c10).toBeFocused();
+  });
+});
+
+// ── Keyboard accessibility: leaderboard ───────────────────────────────────────
+
+const LEADERBOARD_ENTRIES = [
+  { userId: 'alice', durationMs: 60_000, completedAt: Date.now() },
+  { userId: 'bob',   durationMs: 90_000, completedAt: Date.now() },
+  { userId: 'carol', durationMs: 120_000, completedAt: Date.now() },
+];
+
+const lbTest = testWith({ leaderboard: LEADERBOARD_ENTRIES });
+
+lbTest.describe('Keyboard accessibility: leaderboard', () => {
+  lbTest.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForBoard(page);
+    await expect(page.locator('.leaderboard__item')).toHaveCount(3, { timeout: 5_000 });
+  });
+
+  lbTest('first item has tabindex="0"', async ({ page }) => {
+    await expect(page.locator('.leaderboard__item').nth(0)).toHaveAttribute('tabindex', '0');
+  });
+
+  lbTest('other items have tabindex="-1"', async ({ page }) => {
+    await expect(page.locator('.leaderboard__item').nth(1)).toHaveAttribute('tabindex', '-1');
+    await expect(page.locator('.leaderboard__item').nth(2)).toHaveAttribute('tabindex', '-1');
+  });
+
+  lbTest('clicking an item focuses it and sets tabindex to 0', async ({ page }) => {
+    const item = page.locator('.leaderboard__item').nth(2);
+    await item.click();
+    await expect(item).toHaveAttribute('tabindex', '0');
+    await expect(item).toBeFocused();
+  });
+
+  lbTest('ArrowDown moves focus to the next item', async ({ page }) => {
+    const first = page.locator('.leaderboard__item').nth(0);
+    const second = page.locator('.leaderboard__item').nth(1);
+    await first.click();
+    await page.keyboard.press('ArrowDown');
+    await expect(second).toHaveAttribute('tabindex', '0');
+    await expect(second).toBeFocused();
+  });
+
+  lbTest('ArrowUp moves focus to the previous item', async ({ page }) => {
+    const second = page.locator('.leaderboard__item').nth(1);
+    const first = page.locator('.leaderboard__item').nth(0);
+    await second.click();
+    await page.keyboard.press('ArrowUp');
+    await expect(first).toHaveAttribute('tabindex', '0');
+    await expect(first).toBeFocused();
+  });
+
+  lbTest('ArrowDown does not move past the last item', async ({ page }) => {
+    const last = page.locator('.leaderboard__item').nth(2);
+    await last.click();
+    await page.keyboard.press('ArrowDown');
+    await expect(last).toHaveAttribute('tabindex', '0');
+    await expect(last).toBeFocused();
+  });
+
+  lbTest('ArrowUp does not move before the first item', async ({ page }) => {
+    const first = page.locator('.leaderboard__item').nth(0);
+    await first.click();
+    await page.keyboard.press('ArrowUp');
+    await expect(first).toHaveAttribute('tabindex', '0');
+    await expect(first).toBeFocused();
   });
 });

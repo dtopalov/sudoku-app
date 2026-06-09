@@ -10,7 +10,11 @@ const ENTRIES: LeaderboardEntry[] = [
 ];
 
 function press(el: HTMLElement, key: string): void {
-  el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+}
+
+function pointerdown(el: HTMLElement): void {
+  el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
 }
 
 function items(fixture: ComponentFixture<LeaderboardComponent>): HTMLElement[] {
@@ -51,7 +55,6 @@ describe('LeaderboardComponent – keyboard accessibility', () => {
     it('moves tabindex 0 to the next item', () => {
       const els = items(fixture);
       press(els[0], 'ArrowDown');
-      fixture.detectChanges();
 
       expect(els[0].tabIndex).toBe(-1);
       expect(els[1].tabIndex).toBe(0);
@@ -66,11 +69,9 @@ describe('LeaderboardComponent – keyboard accessibility', () => {
     });
 
     it('does not move past the last item', () => {
-      component.focusedIndex.set(2);
-      fixture.detectChanges();
       const els = items(fixture);
+      component.focusItem(2);
       press(els[2], 'ArrowDown');
-      fixture.detectChanges();
 
       expect(els[2].tabIndex).toBe(0);
     });
@@ -78,20 +79,17 @@ describe('LeaderboardComponent – keyboard accessibility', () => {
 
   describe('ArrowUp', () => {
     it('moves tabindex 0 to the previous item', () => {
-      component.focusedIndex.set(2);
-      fixture.detectChanges();
       const els = items(fixture);
+      component.focusItem(2);
       press(els[2], 'ArrowUp');
-      fixture.detectChanges();
 
       expect(els[1].tabIndex).toBe(0);
       expect(els[2].tabIndex).toBe(-1);
     });
 
     it('focuses the previous element', () => {
-      component.focusedIndex.set(1);
-      fixture.detectChanges();
       const els = items(fixture);
+      component.focusItem(1);
       const spy = vi.spyOn(els[0], 'focus');
       press(els[1], 'ArrowUp');
       expect(spy).toHaveBeenCalled();
@@ -100,7 +98,6 @@ describe('LeaderboardComponent – keyboard accessibility', () => {
     it('does not move before the first item', () => {
       const els = items(fixture);
       press(els[0], 'ArrowUp');
-      fixture.detectChanges();
 
       expect(els[0].tabIndex).toBe(0);
     });
@@ -112,17 +109,33 @@ describe('LeaderboardComponent – keyboard accessibility', () => {
       press(els[0], 'Enter');
       press(els[0], 'Tab');
       press(els[0], ' ');
-      fixture.detectChanges();
 
       expect(els[0].tabIndex).toBe(0);
     });
   });
 
-  describe('focus event sync', () => {
-    it('updates focusedIndex when an item receives focus directly', () => {
+  describe('pointerdown', () => {
+    it('moves tabindex 0 to the clicked item', () => {
       const els = items(fixture);
-      els[2].dispatchEvent(new FocusEvent('focus', { bubbles: true }));
-      expect(component.focusedIndex()).toBe(2);
+      pointerdown(els[2]);
+
+      expect(els[0].tabIndex).toBe(-1);
+      expect(els[2].tabIndex).toBe(0);
+    });
+
+    it('focuses the clicked item', () => {
+      const els = items(fixture);
+      const spy = vi.spyOn(els[1], 'focus');
+      pointerdown(els[1]);
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('works when clicking a child element inside the item', () => {
+      const els = items(fixture);
+      const span = els[2].querySelector<HTMLElement>('.leaderboard__user')!;
+      span.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+
+      expect(els[2].tabIndex).toBe(0);
     });
   });
 

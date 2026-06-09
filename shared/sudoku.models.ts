@@ -44,6 +44,7 @@ export interface PlayerRun {
   completedAt: number | null;
   durationMs: number | null;
   status: 'active' | 'completed';
+  eligible: boolean;
 }
 
 export interface SessionSnapshot {

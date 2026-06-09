@@ -121,8 +121,11 @@ function createSessionRecord(difficulty: Difficulty, board: RawBoard): PuzzleSes
 function getOrCreateRun(session: PuzzleSession, userId: string): PlayerRun {
   const key = runKey(session.sessionId, userId);
   const existingRun = runs.get(key);
-  if (existingRun) return existingRun;
 
+  if (existingRun?.status === 'active') return existingRun;
+
+  // First run is eligible; any run created after a completed one is a free replay.
+  const eligible = !existingRun;
   const run: PlayerRun = {
     sessionId: session.sessionId,
     userId,
@@ -131,6 +134,7 @@ function getOrCreateRun(session: PuzzleSession, userId: string): PlayerRun {
     completedAt: null,
     durationMs: null,
     status: 'active',
+    eligible,
   };
   runs.set(key, run);
   return run;
@@ -254,11 +258,14 @@ app.post('/api/sessions/:sessionId/submissions', async (req, res) => {
       run.status = 'completed';
       run.completedAt = Date.now();
       run.durationMs = run.completedAt - run.startedAt;
-      session.leaderboard = upsertLeaderboard(session.leaderboard, {
-        userId: run.userId,
-        durationMs: run.durationMs,
-        completedAt: run.completedAt,
-      } satisfies LeaderboardEntry);
+
+      if (run.eligible) {
+        session.leaderboard = upsertLeaderboard(session.leaderboard, {
+          userId: run.userId,
+          durationMs: run.durationMs,
+          completedAt: run.completedAt,
+        } satisfies LeaderboardEntry);
+      }
     }
 
     res.json(toApiSuccess({ run, leaderboard: session.leaderboard } satisfies SubmitMoveResponse));

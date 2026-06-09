@@ -4,7 +4,7 @@
 
 This server is the backend for the Sudoku multiplayer challenge. It lives under `server/src` and runs from the same repository root as the Angular app, using the shared root `package.json`.
 
-Its responsibility is to create puzzle sessions, manage per-user runs, validate submitted moves locally, and maintain a per-session leaderboard.
+Its responsibility is to create puzzle sessions, manage per-user runs, validate and apply submitted moves, and maintain a per-session leaderboard.
 
 ## Folder context
 
@@ -24,26 +24,27 @@ Its responsibility is to create puzzle sessions, manage per-user runs, validate 
 
 ## What the server owns
 - Session creation
-- Session lookup
 - Per-user run creation/resume
-- Move submission validation
+- Move submission validation and application
+- Board completion check (local — no external call per move)
 - Leaderboard persistence in memory
-- Sugoku API communication
+- Sugoku API communication (board generation and board solve only)
 
 ## External dependency
-The server uses the Sugoku API for Sudoku operations:
-- `GET /board?difficulty=...` to generate a puzzle
-- `POST /validate` to validate a board state
-- `POST /solve` can be added later for hints or solution reveal features
 
-Important detail: Sugoku `validate` expects `application/x-www-form-urlencoded`, not JSON.
+The server uses the Sugoku API for two operations:
+- `GET /board?difficulty=...` to generate a puzzle board on session creation
+- `POST /solve` to return the full solution for a session (used by the auto-solve feature)
+
+Both calls use a 30-second timeout. Board generation additionally retries up to 3 times with exponential backoff. All other server logic — including move validation and board completion checking — runs locally.
+
+Note: Sugoku's `POST /solve` expects `application/x-www-form-urlencoded`, not JSON.
 
 ## In-memory state
 
 ### Sessions
 Each session stores:
 - `sessionId`
-- `puzzleId`
 - `difficulty`
 - `initialBoard`
 - `leaderboard`
@@ -52,13 +53,13 @@ Each session stores:
 ### Runs
 Each player run stores:
 - `sessionId`
-- `puzzleId`
 - `userId`
 - current player board
 - `startedAt`
 - `completedAt`
 - `durationMs`
 - `status`
+- `eligible` — `true` only for the first run a user creates for a session; `false` for any replay run created after a prior completion
 
 ## Endpoints
 
@@ -81,17 +82,14 @@ Request body:
 
 Valid difficulty values: `easy`, `medium`, `hard`, `random` (default: `random`).
 
-### `GET /api/sessions/:sessionId`
-Returns stored session metadata.
-
 ### `POST /api/sessions/:sessionId/join`
-Creates or resumes a player run for a session.
+Creates or resumes a player run for a session. Returns the full session and the player's run.
 
 Request body:
 
 ```json
 {
-  "userId": "dimiter"
+  "userId": "alice"
 }
 ```
 
@@ -99,7 +97,7 @@ Request body:
 Returns the current leaderboard for the session.
 
 ### `POST /api/sessions/:sessionId/solve`
-Returns the full solution for the session's puzzle via Sugoku. Can be used for hint or reveal features.
+Returns the full solution for the session's puzzle via Sugoku. Used by the client's auto-solve feature.
 
 ### `POST /api/sessions/:sessionId/submissions`
 Submits one move for one player's board.
@@ -108,26 +106,26 @@ Request body:
 
 ```json
 {
-  "userId": "dimiter",
+  "userId": "alice",
   "index": [3, 5],
   "value": 7
 }
 ```
 
-`index` is a 1-based `[row, col]` tuple (both in range 1–9). `value` is 1–9.
+`index` is a 1-based `[row, col]` tuple (both in range 1–9). `value` is an integer 1–9, or `null` to erase a cell.
 
 ## Submission lifecycle
 1. Find the session.
-2. Find or create the player's run.
-3. Reject invalid indexes or values.
-4. Reject edits to fixed cells.
-5. Apply the move to a cloned board.
-6. Send the resulting board to Sugoku `validate`.
-7. Reject the move if Sugoku returns `broken`.
-8. Persist the move if valid.
-9. If Sugoku returns `solved`, mark the run complete and update the leaderboard.
+2. Find or create the player's run. If the existing run is completed, a fresh replay run is created with `eligible: false`; the first run for a user/session is `eligible: true`.
+3. Reject if the run is already completed.
+4. Reject invalid index or value.
+5. Reject edits to fixed cells.
+6. Apply the move to a cloned board.
+7. Check locally whether the board is now solved (`checkBoardStatus`).
+8. If solved, mark the run complete. Only update the leaderboard when `run.eligible` is `true` (first legitimate solve per user per session). Auto-solved boards are never submitted through this endpoint and therefore never recorded.
+9. Return the updated run and leaderboard.
 
-## Error codes used by the server
+## Error codes
 - `FAILED_TO_CREATE_SESSION`
 - `SESSION_NOT_FOUND`
 - `USER_ID_REQUIRED`
@@ -135,7 +133,6 @@ Request body:
 - `INVALID_VALUE`
 - `RUN_ALREADY_COMPLETED`
 - `FIXED_CELL`
-- `INVALID_MOVE_CONFLICT`
 - `FAILED_TO_SUBMIT_MOVE`
 - `FAILED_TO_SOLVE`
 
@@ -163,5 +160,5 @@ http://localhost:3000
 ## Limitations
 - Data is in memory only.
 - Restarting the process removes sessions and leaderboard data.
-- There is no authentication.
+- There is no authentication; userId is a plain string chosen by the client.
 - Leaderboard updates are fetched through REST rather than pushed in real time.

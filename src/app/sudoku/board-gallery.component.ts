@@ -6,6 +6,7 @@ import { SudokuApiService } from './sudoku-api.service';
 import { Keys, timeAgo } from './utils';
 
 const MAX_COL = 4;
+const ERROR_MESSAGE = 'Failed to load boards.';
 
 @Component({
   selector: 'app-board-gallery',
@@ -34,7 +35,7 @@ const MAX_COL = 4;
                 <th class="gallery__cell" tabindex="-1" data-row="0" data-col="1">Difficulty</th>
                 <th class="gallery__cell" tabindex="-1" data-row="0" data-col="2">Created</th>
                 <th class="gallery__cell" tabindex="-1" data-row="0" data-col="3">Completions</th>
-                <th class="gallery__cell gallery__cell--cmd"></th>
+                <th class="gallery__cell gallery__cell--cmd"><span sr-only>Select board column header</span></th>
               </tr>
             </thead>
             <tbody>
@@ -87,10 +88,10 @@ export class BoardGalleryComponent implements OnInit {
         );
         this.resetRovingTabindex();
       } else {
-        this.error.set('Failed to load boards.');
+        this.error.set(ERROR_MESSAGE);
       }
     } catch {
-      this.error.set('Failed to load boards.');
+      this.error.set(ERROR_MESSAGE);
     } finally {
       this.loading.set(false);
     }
@@ -101,12 +102,17 @@ export class BoardGalleryComponent implements OnInit {
   }
 
   focusCell(row: number, col: number): void {
-    if (this.rovingCell) this.rovingCell.tabIndex = -1;
+    if (this.rovingCell) {
+      this.rovingCell.tabIndex = -1;
+    }
 
     const cell = this.host.nativeElement.querySelector<HTMLElement>(
       `.gallery__cell[data-row="${row}"][data-col="${col}"]`
     );
-    if (!cell) return;
+
+    if (!cell) {
+      return;
+    }
 
     cell.tabIndex = 0;
     this.rovingCell = cell;
@@ -115,14 +121,21 @@ export class BoardGalleryComponent implements OnInit {
 
   onTablePointerDown(e: PointerEvent): void {
     const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-row][data-col]');
-    if (!cell) return;
+
+    if (!cell) {
+      return;
+    }
+
     e.preventDefault();
     this.focusCell(Number(cell.dataset['row']), Number(cell.dataset['col']));
   }
 
   onTableKeyDown(e: KeyboardEvent): void {
     const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-row][data-col]');
-    if (!cell) return;
+
+    if (!cell) {
+      return;
+    }
 
     const row = Number(cell.dataset['row']);
     const col = Number(cell.dataset['col']);
@@ -136,12 +149,20 @@ export class BoardGalleryComponent implements OnInit {
       case Keys.ArrowDown:
         e.preventDefault();
         newRow = Math.min(row + 1, maxRow);
-        if (newRow > 0 && newCol > MAX_COL) newCol = MAX_COL;
+
+        if (newRow > 0 && newCol > MAX_COL) {
+          newCol = MAX_COL;
+        }
+
         break;
       case Keys.ArrowUp:
         e.preventDefault();
         newRow = Math.max(row - 1, 0);
-        if (newRow === 0 && newCol > 3) newCol = 3;
+
+        if (newRow === 0 && newCol > 3) {
+          newCol = 3;
+        }
+
         break;
       case Keys.ArrowRight:
         e.preventDefault();
@@ -154,10 +175,12 @@ export class BoardGalleryComponent implements OnInit {
       case 'Enter':
       case ' ': {
         const sessionId = cell.closest('tr')?.dataset['sessionId'];
+
         if (sessionId) {
           e.preventDefault();
           this.navigate(sessionId);
         }
+
         break;
       }
     }
@@ -172,10 +195,12 @@ export class BoardGalleryComponent implements OnInit {
       this.rovingCell.tabIndex = -1;
       this.rovingCell = null;
     }
-    const first = this.host.nativeElement.querySelector<HTMLElement>('.gallery__cell[data-row="0"][data-col="0"]');
-    if (first) {
-      first.tabIndex = 0;
-      this.rovingCell = first;
+
+    const firstCell = this.host.nativeElement.querySelector<HTMLElement>('.gallery__cell[data-row="0"][data-col="0"]');
+
+    if (firstCell) {
+      firstCell.tabIndex = 0;
+      this.rovingCell = firstCell;
     }
   }
 }

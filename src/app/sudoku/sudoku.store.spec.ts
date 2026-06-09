@@ -31,6 +31,7 @@ function makeRun(overrides: Partial<PlayerRun> = {}): PlayerRun {
     completedAt: null,
     durationMs: null,
     status: 'active',
+    eligible: true,
     ...overrides,
   };
 }
