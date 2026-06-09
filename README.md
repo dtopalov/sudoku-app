@@ -105,7 +105,7 @@ npm run test:server
 # Both
 npm run test:all
 
-# End-to-end tests (requires both frontend and backend running)
+# End-to-end tests (Playwright starts the frontend automatically; backend is mocked)
 npm run test:e2e
 ```
 
@@ -114,4 +114,4 @@ npm run test:e2e
 - Restarting the backend clears active sessions and leaderboard entries.
 - Sugoku is only contacted on session creation (board generation) and board solve; all other processing is local.
 - Sugoku API calls use a 30-second timeout with up to 3 retry attempts (exponential backoff) for board generation.
-- The mobile number pad is hidden on viewports ≥ 992 px via CSS.
+- The layout adapts to desktop and mobile screen sizes, with a breakpoint at 992 px width.
