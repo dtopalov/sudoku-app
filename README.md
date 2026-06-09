@@ -1,59 +1,117 @@
-# SudokuApp
+# Sudoku Multiplayer Challenge Overview
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.0.0.
+## What this project is
 
-## Development server
+This repository contains a Sudoku application split into two runtime parts inside a single project root:
+- an Angular frontend under `src/app`
+- a Node.js + Express REST API under `server/src`
 
-To start a local development server, run:
+Both parts live in the same repository and use the same root `package.json`.
 
-```bash
-ng serve
+The multiplayer mode is asynchronous rather than real-time collaborative. Multiple users can join the same puzzle session, solve the same generated board independently, and compare completion times on a shared leaderboard.
+
+## Repository structure
+
+```text
+/
+├─ package.json
+├─ src/
+│  └─ app/
+│     └─ ... Angular application
+├─ server/
+│  └─ src/
+│     ├─ sudoku-server.ts
+│     └─ sudoku-utils.ts
+└─ shared/
+   └─ sudoku.models.ts
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## High-level architecture
 
-## Code scaffolding
+### Angular frontend
+- Lives under `src/app`
+- Renders the Sudoku board and leaderboard UI
+- Uses a signals-based `SudokuStore`
+- Uses `SudokuApiService` for REST communication with the backend
+- Includes a mobile-only number pad (`NumberPadComponent`) for tap-based digit entry on small screens
+- Validates moves client-side before submission: checks for duplicates in the same row, column, or box; only conflict-free moves are sent to the server
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+### REST API
+- Lives under `server/src`
+- Creates Sudoku sessions, fetching generated boards from Sugoku
+- Creates or resumes per-user runs for a session
+- Validates and applies submitted moves; checks board completion locally without any external call
+- Stores session and leaderboard data in memory
+
+### Shared models
+- Shared request/response contracts and domain types live in `shared/sudoku.models.ts`
+- Both frontend and backend import the same models for consistency
+
+## Main user flow
+1. A player creates a new session.
+2. The backend fetches a generated board from Sugoku.
+3. The frontend receives a `sessionId` and joins the player into that session.
+4. Other users can join the same session from the board gallery or by navigating to the same URL.
+5. Each player solves the same puzzle independently.
+6. The client checks for row/column/box conflicts before sending a move.
+7. Valid moves are submitted to the backend, which applies the move and checks locally whether the board is now solved.
+8. Once solved, the player's completion time is recorded in the session leaderboard — but only on their first legitimate solve. Auto-solved boards are never recorded.
+9. If the player joins the same session again after completing it, they receive a fresh board and can replay freely, but subsequent completions are not timed and do not update the leaderboard.
+10. The leaderboard can be re-fetched on reload or revisit.
+
+## Local development
+
+Because the repository uses a shared root `package.json`, commands are run from the root folder.
+
+### Install dependencies
 
 ```bash
-ng generate component component-name
+npm install
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+### Start the REST API
 
 ```bash
-ng generate --help
+npm run server
 ```
 
-## Building
+Backend URL:
 
-To build the project run:
+```text
+http://localhost:3000
+```
+
+### Start the Angular frontend
 
 ```bash
-ng build
+npm start
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Frontend URL:
 
-## Running unit tests
+```text
+http://localhost:4200
+```
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+### Run tests
 
 ```bash
-ng test
+# Angular unit tests
+npm test
+
+# Server unit tests
+npm run test:server
+
+# Both
+npm run test:all
+
+# End-to-end tests (Playwright starts the frontend automatically; backend is mocked)
+npm run test:e2e
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## Notes
+- Session and leaderboard data are stored in memory only.
+- Restarting the backend clears active sessions and leaderboard entries.
+- Sugoku is only contacted on session creation (board generation) and board solve; all other processing is local.
+- Sugoku API calls use a 30-second timeout with up to 3 retry attempts (exponential backoff) for board generation.
+- The layout adapts to desktop and mobile screen sizes, with a breakpoint at 992 px width.
