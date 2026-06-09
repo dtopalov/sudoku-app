@@ -166,15 +166,6 @@ app.post('/api/sessions', async (req, res) => {
   }
 });
 
-app.get('/api/sessions/:sessionId', (req, res) => {
-  const session = sessions.get(req.params.sessionId);
-  if (!session) {
-    res.status(404).json(toApiFailure('SESSION_NOT_FOUND'));
-    return;
-  }
-  res.json(toApiSuccess({ session }));
-});
-
 app.post('/api/sessions/:sessionId/join', (req, res) => {
   const session = sessions.get(req.params.sessionId);
   if (!session) {

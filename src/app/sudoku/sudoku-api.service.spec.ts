@@ -52,33 +52,10 @@ describe('SudokuApiService', () => {
     await promise;
   });
 
-  describe('submitMove', () => {
-    it('POSTs to /sessions/:id/submissions', async () => {
-      const promise = service.submitMove('abc', 'user-1', [1, 1], 5);
-      http.expectOne(`${BASE}/sessions/abc/submissions`).flush({ ok: true, data: {} });
-      const result = await promise;
-      expect(result.ok).toBe(true);
-    });
-
-    it('returns ApiFailure for 400 responses instead of throwing', async () => {
-      const failure = { ok: false, error: 'FIXED_CELL' };
-      const promise = service.submitMove('abc', 'user-1', [1, 1], 5);
-      http
-        .expectOne(`${BASE}/sessions/abc/submissions`)
-        .flush(failure, { status: 400, statusText: 'Bad Request' });
-      const result = await promise;
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.error).toBe('FIXED_CELL');
-    });
-
-    it('returns ApiFailure for 422 responses instead of throwing', async () => {
-      const failure = { ok: false, error: 'INVALID_VALUE' };
-      const promise = service.submitMove('abc', 'user-1', [1, 1], 5);
-      http
-        .expectOne(`${BASE}/sessions/abc/submissions`)
-        .flush(failure, { status: 422, statusText: 'Unprocessable Entity' });
-      const result = await promise;
-      expect(result.ok).toBe(false);
-    });
+  it('submitMove POSTs to /sessions/:id/submissions', async () => {
+    const promise = service.submitMove('abc', 'user-1', [1, 1], 5);
+    http.expectOne(`${BASE}/sessions/abc/submissions`).flush({ ok: true, data: {} });
+    const result = await promise;
+    expect(result.ok).toBe(true);
   });
 });

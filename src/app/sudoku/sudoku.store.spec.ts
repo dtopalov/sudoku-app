@@ -49,7 +49,6 @@ describe('SudokuStore', () => {
     return {
       createSession: vi.fn(),
       getSessions: vi.fn(),
-      getSession: vi.fn(),
       joinSession: vi.fn(),
       getLeaderboard: vi.fn(),
       solveSession: vi.fn(),
