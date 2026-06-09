@@ -25,15 +25,13 @@ import {
   isValidValue,
   rawToCells,
   upsertLeaderboard,
+  checkBoardStatus,
 } from './sudoku-utils';
 
 interface SugokuBoardResponse {
   board: RawBoard;
 }
 
-interface SugokuStatusResponse {
-  status: 'solved' | 'unsolved' | 'broken';
-}
 
 interface SugokuSolveResponse {
   solution: RawBoard;
@@ -63,24 +61,20 @@ function runKey(sessionId: string, userId: string): string {
   return `${sessionId}:${userId}`;
 }
 
+const SUGOKU_TIMEOUT_MS = 15_000;
+
+function sugokuSignal(): AbortSignal {
+  return AbortSignal.timeout(SUGOKU_TIMEOUT_MS);
+}
+
 async function fetchGeneratedBoard(difficulty: Difficulty): Promise<RawBoard> {
   const response = await fetch(
-    `${SUGOKU_BASE_URL}/board?difficulty=${encodeURIComponent(difficulty)}`
+    `${SUGOKU_BASE_URL}/board?difficulty=${encodeURIComponent(difficulty)}`,
+    { signal: sugokuSignal() }
   );
   if (!response.ok) throw new Error('SUGOKU_BOARD_FETCH_FAILED');
   const data = (await response.json()) as SugokuBoardResponse;
   return data.board;
-}
-
-async function validateBoardWithSugoku(board: RawBoard): Promise<SugokuStatusResponse> {
-  const body = new URLSearchParams({ board: JSON.stringify(board) });
-  const response = await fetch(`${SUGOKU_BASE_URL}/validate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-  if (!response.ok) throw new Error('SUGOKU_VALIDATE_FAILED');
-  return (await response.json()) as SugokuStatusResponse;
 }
 
 async function solveBoardWithSugoku(board: RawBoard): Promise<RawBoard> {
@@ -89,6 +83,7 @@ async function solveBoardWithSugoku(board: RawBoard): Promise<RawBoard> {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
+    signal: sugokuSignal(),
   });
   if (!response.ok) throw new Error('SUGOKU_SOLVE_FAILED');
   const data = (await response.json()) as SugokuSolveResponse;
@@ -243,11 +238,9 @@ app.post('/api/sessions/:sessionId/submissions', async (req, res) => {
 
     const nextBoard = cloneBoard(run.board);
     nextBoard[row - 1][col - 1] = { ...targetCell, value: body.value };
-
-    const validation = await validateBoardWithSugoku(cellsToRawBoard(nextBoard));
     run.board = nextBoard;
 
-    if (validation.status === 'solved') {
+    if (checkBoardStatus(nextBoard) === 'solved') {
       run.status = 'completed';
       run.completedAt = Date.now();
       run.durationMs = run.completedAt - run.startedAt;

@@ -4,7 +4,7 @@
 
 This server is the backend for the Sudoku multiplayer challenge. It lives under `server/src` and runs from the same repository root as the Angular app, using the shared root `package.json`.
 
-Its responsibility is to create puzzle sessions, manage per-user runs, validate submitted moves through Sugoku, and maintain a per-session leaderboard.
+Its responsibility is to create puzzle sessions, manage per-user runs, validate submitted moves locally, and maintain a per-session leaderboard.
 
 ## Folder context
 
@@ -17,7 +17,7 @@ Its responsibility is to create puzzle sessions, manage per-user runs, validate 
 ├─ server/
 │  └─ src/
 │     ├─ sudoku-server.ts   — Express app, routes, in-memory state
-│     └─ sudoku-utils.ts    — board helpers (validate, clone, upsert leaderboard)
+│     └─ sudoku-utils.ts    — board helpers (checkBoardStatus, clone, upsert leaderboard, …)
 └─ shared/
    └─ sudoku.models.ts
 ```

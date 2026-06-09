@@ -33,13 +33,14 @@ The multiplayer mode is asynchronous rather than real-time collaborative. Multip
 - Renders the Sudoku board and leaderboard UI
 - Uses a signals-based `SudokuStore`
 - Uses `SudokuApiService` for REST communication with the backend
+- Includes a mobile-only number pad (`NumberPadComponent`) for tap-based digit entry on small screens
+- Conflict validation (duplicate in row/column/box) runs client-side before any submission
 
 ### REST API
 - Lives under `server/src`
-- Creates Sudoku sessions
-- Fetches generated boards from Sugoku
+- Creates Sudoku sessions, fetching generated boards from Sugoku
 - Creates or resumes per-user runs for a session
-- Validates moves through Sugoku
+- Validates move completion locally (no external call per move)
 - Stores session and leaderboard data in memory
 
 ### Shared models
@@ -52,9 +53,10 @@ The multiplayer mode is asynchronous rather than real-time collaborative. Multip
 3. The frontend receives a `sessionId` and joins the player into that session.
 4. Other users can join using the same session id.
 5. Each player solves the same puzzle independently.
-6. Each non-conflicting move is submitted to the backend for validation.
-7. Once solved, the player's completion time is recorded in the session leaderboard.
-8. The leaderboard can be re-fetched on reload or revisit.
+6. The client checks for row/column/box conflicts before sending a move.
+7. Valid moves are submitted to the backend, which checks whether the board is now solved.
+8. Once solved, the player's completion time is recorded in the session leaderboard.
+9. The leaderboard can be re-fetched on reload or revisit.
 
 ## Local development
 
@@ -109,4 +111,6 @@ npm run test:e2e
 ## Notes
 - Session and leaderboard data are stored in memory only.
 - Restarting the backend clears active sessions and leaderboard entries.
-- Sugoku validation uses `application/x-www-form-urlencoded` payloads.
+- Move submissions no longer call the Sugoku API; completion is checked locally on the server.
+- Sugoku is only contacted on session creation and board solve; both calls have a 15-second timeout.
+- The mobile number pad is hidden on viewports ≥ 992 px via CSS.

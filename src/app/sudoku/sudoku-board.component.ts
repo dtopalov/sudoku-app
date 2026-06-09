@@ -8,7 +8,6 @@ import {
   output,
 } from '@angular/core';
 import type { PositionedCell } from './../../../shared/sudoku.models';
-import { SudokuStore } from './sudoku.store';
 import { Keys } from './utils';
 
 const CLEAR_KEYS = [Keys.Backspace, Keys.Delete, Keys.Clear];
@@ -73,7 +72,6 @@ export class SudokuBoardComponent {
   valueEntered = output<number | null>();
   clearRequested = output<void>();
 
-  private readonly store = inject(SudokuStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private rovingCell: HTMLElement | null = null;
 
@@ -113,12 +111,11 @@ export class SudokuBoardComponent {
 
     if (isFixed || this.isReadOnly()) return;
 
-    if (isNumber && +e.key !== 0 && this.isConflictingNumber(row, col, +e.key)) {
-      this.store.setInvalidMoveError();
-      return;
-    }
-
     this.valueEntered.emit(isClearValueKey || +e.key === 0 ? null : +e.key);
+  }
+
+  focusSelectedCell(): void {
+    this.rovingCell?.focus();
   }
 
   private focusCell(row: number, col: number): void {
@@ -190,24 +187,4 @@ export class SudokuBoardComponent {
     );
   }
 
-  private isConflictingNumber(selectedRow: number, selectedCol: number, contender: number): boolean {
-    const board = this.board();
-
-    if (board[selectedRow - 1].some((cell) => cell.value === contender)) return true;
-
-    for (let i = 0; i < board.length; i++) {
-      if (board[i][selectedCol - 1].value === contender) return true;
-    }
-
-    const boxRow = Math.floor((selectedRow - 1) / 3);
-    const boxCol = Math.floor((selectedCol - 1) / 3);
-
-    for (let i = boxRow * 3; i < boxRow * 3 + 3; i++) {
-      for (let j = boxCol * 3; j < boxCol * 3 + 3; j++) {
-        if (board[i][j].value === contender) return true;
-      }
-    }
-
-    return false;
-  }
 }

@@ -493,6 +493,73 @@
   white-space: nowrap;
 }
 
+// ── Board + number pad stack ─────────────────────────────────────────────────
+
+.sudoku-board-stack {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+// ── Number Pad (mobile only) ─────────────────────────────────────────────────
+
+.number-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid var(--grid-line);
+  box-shadow: var(--shadow-sm);
+}
+
+.number-pad__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--grid-line);
+  background: var(--cell-bg);
+  color: var(--text-main);
+  font-size: 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 100ms, border-color 100ms;
+  touch-action: manipulation;
+
+  &:hover:not(:disabled) {
+    background: var(--cell-bg-hover);
+    border-color: var(--accent);
+  }
+
+  &:active:not(:disabled) {
+    background: var(--cell-bg-selected);
+    border-color: var(--accent);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &--erase {
+    grid-column: 1 / -1;
+    font-size: 0.9rem;
+    font-weight: 500;
+    height: 2.5rem;
+    color: var(--text-muted);
+    background: var(--cell-bg-fixed);
+  }
+}
+
+@media (min-width: 992px) {
+  .number-pad {
+    display: none;
+  }
+}
+
 // ── Board Gallery ────────────────────────────────────────────────────────────
 
 .gallery {

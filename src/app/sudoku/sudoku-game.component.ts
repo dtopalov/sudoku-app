@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { distinctUntilChanged, map } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -9,12 +9,13 @@ import { SudokuBoardComponent } from './sudoku-board.component';
 import { LeaderboardComponent } from './leaderboard.component';
 import { SidebarComponent } from './sidebar.component';
 import { BoardGalleryComponent } from './board-gallery.component';
-import { getErrorMessage } from './utils';
+import { NumberPadComponent } from './number-pad.component';
+import { getErrorMessage, isConflictingNumber } from './utils';
 
 @Component({
   selector: 'app-sudoku-game',
   standalone: true,
-  imports: [SudokuBoardComponent, LeaderboardComponent, SidebarComponent, BoardGalleryComponent],
+  imports: [SudokuBoardComponent, LeaderboardComponent, SidebarComponent, BoardGalleryComponent, NumberPadComponent],
   template: `
     @if (store.state().error) {
       <div class="error-notification">
@@ -26,13 +27,19 @@ import { getErrorMessage } from './utils';
     <div class="sudoku-page">
       <div class="sudoku-page__top">
         <div class="sudoku-page__board">
-          <app-sudoku-board
-            [board]="store.board()"
-            [isReadOnly]="store.isReadOnly()"
-            [(selectedCellIndex)]="selectedCellIndex"
-            (valueEntered)="setCellValue($event)"
-            (clearRequested)="clearCell()"
-          />
+          <div class="sudoku-board-stack">
+            <app-sudoku-board
+              [board]="store.board()"
+              [isReadOnly]="store.isReadOnly()"
+              [(selectedCellIndex)]="selectedCellIndex"
+              (valueEntered)="setCellValue($event)"
+              (clearRequested)="clearCell()"
+            />
+            <app-number-pad
+              [isReadOnly]="store.isReadOnly()"
+              (valueEntered)="setCellValue($event)"
+            />
+          </div>
         </div>
 
         <div class="sudoku-page__sidebar">
@@ -68,6 +75,8 @@ export class SudokuGameComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+
+  private readonly boardRef = viewChild.required(SudokuBoardComponent);
 
   readonly selectedDifficulty = signal<Difficulty>('random');
   readonly selectedCellIndex = signal<[number, number]>([1, 1]);
@@ -115,8 +124,16 @@ export class SudokuGameComponent implements OnInit {
   }
 
   async setCellValue(value: number | null): Promise<void> {
-    this.store.selectCell(this.selectedCellIndex());
+    const [row, col] = this.selectedCellIndex();
+    const currentValue = this.store.board()[row - 1][col - 1].value;
+    if (value === currentValue) return;
+    if (value !== null && isConflictingNumber(this.store.board(), row, col, value)) {
+      this.store.setInvalidMoveError();
+      return;
+    }
+    this.store.selectCell([row, col]);
     await this.store.setCellValue(value);
+    this.boardRef().focusSelectedCell();
   }
 
   async clearCell(): Promise<void> {

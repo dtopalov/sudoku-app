@@ -6,6 +6,7 @@ import {
   upsertLeaderboard,
   isValidPosition,
   isValidValue,
+  checkBoardStatus,
 } from './sudoku-utils';
 import type { LeaderboardEntry, PositionedCell } from '../../shared/sudoku.models';
 
@@ -115,5 +116,60 @@ describe('isValidValue', () => {
 
   it('rejects non-integer numbers', () => {
     expect(isValidValue(1.5)).toBe(false);
+  });
+});
+
+// ── checkBoardStatus ─────────────────────────────────────────────────────────
+
+// A known-valid solved board (standard sudoku solution)
+const SOLVED_RAW = [
+  [5, 3, 4, 6, 7, 8, 9, 1, 2],
+  [6, 7, 2, 1, 9, 5, 3, 4, 8],
+  [1, 9, 8, 3, 4, 2, 5, 6, 7],
+  [8, 5, 9, 7, 6, 1, 4, 2, 3],
+  [4, 2, 6, 8, 5, 3, 7, 9, 1],
+  [7, 1, 3, 9, 2, 4, 8, 5, 6],
+  [9, 6, 1, 5, 3, 7, 2, 8, 4],
+  [2, 8, 7, 4, 1, 9, 6, 3, 5],
+  [3, 4, 5, 2, 8, 6, 1, 7, 9],
+];
+
+function solvedBoard(): PositionedCell[][] {
+  return rawToCells(SOLVED_RAW);
+}
+
+function withNull(board: PositionedCell[][], row: number, col: number): PositionedCell[][] {
+  const b = board.map((r) => r.map((c) => ({ ...c })));
+  b[row][col] = { ...b[row][col], value: null };
+  return b;
+}
+
+describe('checkBoardStatus', () => {
+  it('returns "solved" for a complete, valid board', () => {
+    expect(checkBoardStatus(solvedBoard())).toBe('solved');
+  });
+
+  it('returns "unsolved" when any cell is empty', () => {
+    expect(checkBoardStatus(withNull(solvedBoard(), 0, 0))).toBe('unsolved');
+    expect(checkBoardStatus(withNull(solvedBoard(), 8, 8))).toBe('unsolved');
+  });
+
+  it('returns "unsolved" when a row has a duplicate', () => {
+    const board = solvedBoard();
+    // Swap two cells in row 0 so col 0 and col 1 are the same value
+    board[0][1] = { ...board[0][1], value: board[0][0].value };
+    expect(checkBoardStatus(board)).toBe('unsolved');
+  });
+
+  it('returns "unsolved" when a column has a duplicate', () => {
+    const board = solvedBoard();
+    board[1][0] = { ...board[1][0], value: board[0][0].value };
+    expect(checkBoardStatus(board)).toBe('unsolved');
+  });
+
+  it('returns "unsolved" when a 3×3 box has a duplicate', () => {
+    const board = solvedBoard();
+    board[1][1] = { ...board[1][1], value: board[0][0].value };
+    expect(checkBoardStatus(board)).toBe('unsolved');
   });
 });

@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { SudokuBoardComponent } from './sudoku-board.component';
-import { SudokuStore } from './sudoku.store';
 import type { PositionedCell } from '../../../shared/sudoku.models';
 
 // ── Board fixture helper ──────────────────────────────────────────────────────
@@ -41,16 +40,10 @@ function press(el: HTMLElement, key: string): void {
 describe('SudokuBoardComponent', () => {
   let fixture: ComponentFixture<SudokuBoardComponent>;
   let component: SudokuBoardComponent;
-  let mockStore: { setInvalidMoveError: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
-    mockStore = { setInvalidMoveError: vi.fn() };
-
     await TestBed.configureTestingModule({
       imports: [SudokuBoardComponent],
-      providers: [
-        { provide: SudokuStore, useValue: mockStore },
-      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SudokuBoardComponent);
@@ -225,35 +218,7 @@ describe('SudokuBoardComponent', () => {
     });
   });
 
-  // ── 7. Conflict detection ─────────────────────────────────────────────────
-
-  describe('Conflict detection', () => {
-    beforeEach(() => {
-      // Row 1 already has value=3 at col 5
-      fixture.componentRef.setInput('board', makeBoard([{ row: 1, col: 5, value: 3 }]));
-      fixture.detectChanges();
-      TestBed.flushEffects();
-      fixture.detectChanges();
-    });
-
-    it('entering a number already in the same row calls store.setInvalidMoveError()', () => {
-      const c = getCell(fixture, 1, 1);
-      pointerdown(c);
-      press(c, '3');
-      expect(mockStore.setInvalidMoveError).toHaveBeenCalled();
-    });
-
-    it('does NOT emit valueEntered when there is a conflict', () => {
-      const emitted: unknown[] = [];
-      component.valueEntered.subscribe((v) => emitted.push(v));
-      const c = getCell(fixture, 1, 1);
-      pointerdown(c);
-      press(c, '3');
-      expect(emitted).toHaveLength(0);
-    });
-  });
-
-  // ── 8. Navigation ─────────────────────────────────────────────────────────
+  // ── 7. Navigation ─────────────────────────────────────────────────────────
 
   describe('Navigation', () => {
     it('ArrowRight updates selectedCellIndex to [row, col+1]', () => {

@@ -29,6 +29,30 @@ export function timeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
+export function isConflictingNumber(
+  board: { value: number | null }[][],
+  selectedRow: number,
+  selectedCol: number,
+  contender: number
+): boolean {
+  if (board[selectedRow - 1].some((cell) => cell.value === contender)) return true;
+
+  for (let i = 0; i < board.length; i++) {
+    if (board[i][selectedCol - 1].value === contender) return true;
+  }
+
+  const boxRow = Math.floor((selectedRow - 1) / 3);
+  const boxCol = Math.floor((selectedCol - 1) / 3);
+
+  for (let i = boxRow * 3; i < boxRow * 3 + 3; i++) {
+    for (let j = boxCol * 3; j < boxCol * 3 + 3; j++) {
+      if (board[i][j].value === contender) return true;
+    }
+  }
+
+  return false;
+}
+
 export enum Keys {
   ArrowDown = 'ArrowDown',
   ArrowLeft = 'ArrowLeft',

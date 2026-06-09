@@ -68,3 +68,28 @@ export function validateDifficulty(value: unknown): Difficulty {
   const valid: Difficulty[] = ['easy', 'medium', 'hard', 'random'];
   return valid.includes(value as Difficulty) ? (value as Difficulty) : 'random';
 }
+
+export function checkBoardStatus(board: PositionedCell[][]): 'solved' | 'unsolved' {
+  const allFilled = board.every((row) => row.every((cell) => cell.value !== null));
+  if (!allFilled) return 'unsolved';
+
+  const isValidSet = (nums: number[]) => new Set(nums).size === 9;
+  const rowVals = (r: number) => board[r].map((c) => c.value as number);
+  const colVals = (c: number) => board.map((row) => row[c].value as number);
+  const boxVals = (br: number, bc: number) => {
+    const vals: number[] = [];
+    for (let r = br * 3; r < br * 3 + 3; r++)
+      for (let c = bc * 3; c < bc * 3 + 3; c++)
+        vals.push(board[r][c].value as number);
+    return vals;
+  };
+
+  for (let i = 0; i < 9; i++) {
+    if (!isValidSet(rowVals(i)) || !isValidSet(colVals(i))) return 'unsolved';
+  }
+  for (let br = 0; br < 3; br++)
+    for (let bc = 0; bc < 3; bc++)
+      if (!isValidSet(boxVals(br, bc))) return 'unsolved';
+
+  return 'solved';
+}

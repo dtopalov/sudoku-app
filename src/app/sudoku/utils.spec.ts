@@ -1,5 +1,66 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { formatDuration, getErrorMessage, timeAgo } from './utils';
+import { formatDuration, getErrorMessage, isConflictingNumber, timeAgo } from './utils';
+import type { PositionedCell } from '../../../shared/sudoku.models';
+
+// ── isConflictingNumber ───────────────────────────────────────────────────────
+
+function makeBoard(overrides: Partial<PositionedCell>[] = []): PositionedCell[][] {
+  const board = Array.from({ length: 9 }, (_, r) =>
+    Array.from({ length: 9 }, (_, c): PositionedCell => ({
+      row: r + 1, col: c + 1, value: null, fixed: false,
+    }))
+  );
+  for (const o of overrides) {
+    if (o.row != null && o.col != null) {
+      board[o.row - 1][o.col - 1] = { ...board[o.row - 1][o.col - 1], ...o };
+    }
+  }
+  return board;
+}
+
+describe('isConflictingNumber', () => {
+  it('returns false on an empty board', () => {
+    expect(isConflictingNumber(makeBoard(), 1, 1, 5)).toBe(false);
+  });
+
+  it('detects a conflict in the same row', () => {
+    const board = makeBoard([{ row: 1, col: 5, value: 3 }]);
+    expect(isConflictingNumber(board, 1, 1, 3)).toBe(true);
+  });
+
+  it('detects a conflict in the same column', () => {
+    const board = makeBoard([{ row: 5, col: 1, value: 7 }]);
+    expect(isConflictingNumber(board, 1, 1, 7)).toBe(true);
+  });
+
+  it('detects a conflict in the same 3×3 box', () => {
+    const board = makeBoard([{ row: 2, col: 2, value: 9 }]);
+    expect(isConflictingNumber(board, 1, 1, 9)).toBe(true);
+  });
+
+  it('does not flag a conflict in a different row, column, and box', () => {
+    const board = makeBoard([{ row: 1, col: 5, value: 3 }]);
+    expect(isConflictingNumber(board, 4, 1, 3)).toBe(false);
+  });
+
+  it('does not flag entering a different value into a cell that already has a value', () => {
+    const board = makeBoard([{ row: 1, col: 1, value: 5 }]);
+    expect(isConflictingNumber(board, 1, 1, 3)).toBe(false);
+  });
+
+  it('returns true when contender matches the cell\'s own current value — caller must guard with early return', () => {
+    // isConflictingNumber scans the full row/col/box including the cell itself,
+    // so re-entering a cell's existing value appears as a conflict.
+    // SudokuGameComponent.setCellValue returns early before reaching this check.
+    const board = makeBoard([{ row: 1, col: 1, value: 5 }]);
+    expect(isConflictingNumber(board, 1, 1, 5)).toBe(true);
+  });
+
+  it('returns false for a number only present in a different box', () => {
+    const board = makeBoard([{ row: 4, col: 4, value: 6 }]);
+    expect(isConflictingNumber(board, 1, 1, 6)).toBe(false);
+  });
+});
 
 describe('formatDuration', () => {
   it('formats zero as 0:00', () => {
