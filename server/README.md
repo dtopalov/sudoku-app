@@ -25,8 +25,8 @@ Its responsibility is to create puzzle sessions, manage per-user runs, validate 
 ## What the server owns
 - Session creation
 - Per-user run creation/resume
-- Move submission validation and application
-- Board completion check (local — no external call per move)
+- Move submission (index bounds, value range, fixed-cell guard)
+- Board completion check after each submission
 - Leaderboard persistence in memory
 - Sugoku API communication (board generation and board solve only)
 
@@ -118,9 +118,9 @@ Request body:
 1. Find the session.
 2. Find or create the player's run. If the existing run is completed, a fresh replay run is created with `eligible: false`; the first run for a user/session is `eligible: true`.
 3. Reject if the run is already completed.
-4. Reject invalid index or value.
+4. Reject out-of-bounds index or invalid value.
 5. Reject edits to fixed cells.
-6. Apply the move to a cloned board.
+6. Apply the move to a cloned board. Conflict detection (duplicate in row/column/box) is the client's responsibility — the server does not re-check it.
 7. Check locally whether the board is now solved (`checkBoardStatus`).
 8. If solved, mark the run complete. Only update the leaderboard when `run.eligible` is `true` (first legitimate solve per user per session). Auto-solved boards are never submitted through this endpoint and therefore never recorded.
 9. Return the updated run and leaderboard.
