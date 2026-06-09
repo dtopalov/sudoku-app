@@ -17,12 +17,13 @@ import { getErrorMessage, isConflictingNumber } from './utils';
   standalone: true,
   imports: [SudokuBoardComponent, LeaderboardComponent, SidebarComponent, BoardGalleryComponent, NumberPadComponent],
   template: `
-    @if (store.state().error) {
-      <div class="error-notification">
-        <p>{{ errorMessage }}</p>
-        <button (click)="store.clearError()">Dismiss</button>
-      </div>
-    }
+    <div
+      [hidden]="!store.state().error"
+      class="error-notification"
+      role="status">
+      <p>{{ store.state().error ? errorMessage : '' }}</p>
+      <button (click)="store.clearError()">Dismiss</button>
+    </div>
 
     <div class="sudoku-page">
       <div class="sudoku-page__top">

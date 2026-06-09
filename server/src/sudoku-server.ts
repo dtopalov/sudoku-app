@@ -61,20 +61,38 @@ function runKey(sessionId: string, userId: string): string {
   return `${sessionId}:${userId}`;
 }
 
-const SUGOKU_TIMEOUT_MS = 15_000;
+const SUGOKU_TIMEOUT_MS = 30_000;
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 1_000;
 
 function sugokuSignal(): AbortSignal {
   return AbortSignal.timeout(SUGOKU_TIMEOUT_MS);
 }
 
+async function withRetry<T>(fn: () => Promise<T>, attempts: number, baseDelayMs: number): Promise<T> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === attempts) throw err;
+      const delay = baseDelayMs * 2 ** (attempt - 1);
+      console.warn(`Attempt ${attempt} failed, retrying in ${delay}ms:`, err);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error('UNREACHABLE');
+}
+
 async function fetchGeneratedBoard(difficulty: Difficulty): Promise<RawBoard> {
-  const response = await fetch(
-    `${SUGOKU_BASE_URL}/board?difficulty=${encodeURIComponent(difficulty)}`,
-    { signal: sugokuSignal() }
-  );
-  if (!response.ok) throw new Error('SUGOKU_BOARD_FETCH_FAILED');
-  const data = (await response.json()) as SugokuBoardResponse;
-  return data.board;
+  return withRetry(async () => {
+    const response = await fetch(
+      `${SUGOKU_BASE_URL}/board?difficulty=${encodeURIComponent(difficulty)}`,
+      { signal: sugokuSignal() }
+    );
+    if (!response.ok) throw new Error('SUGOKU_BOARD_FETCH_FAILED');
+    const data = (await response.json()) as SugokuBoardResponse;
+    return data.board;
+  }, RETRY_ATTEMPTS, RETRY_BASE_DELAY_MS);
 }
 
 async function solveBoardWithSugoku(board: RawBoard): Promise<RawBoard> {
@@ -142,7 +160,8 @@ app.post('/api/sessions', async (req, res) => {
     const session = createSessionRecord(difficulty, generatedBoard);
     sessions.set(session.sessionId, session);
     res.status(201).json(toApiSuccess({ session }));
-  } catch {
+  } catch (err) {
+    console.error('Failed to create session:', err);
     res.status(500).json(toApiFailure('FAILED_TO_CREATE_SESSION'));
   }
 });
