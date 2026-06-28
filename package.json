@@ -31,8 +31,7 @@
   "devDependencies": {
     "@angular/build": "^22.0.0",
     "@angular/cli": "^22.0.0",
-    "@angular/compiler-cli": "^22.0.0",
-    "@playwright/test": "^1.60.0",
+"@playwright/test": "^1.60.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.2",
@@ -40,5 +39,8 @@
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "piscina": "^5.2.0"
   }
 }
